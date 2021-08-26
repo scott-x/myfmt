@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/scott-x/myfmt/db"
 	"log"
 	"os"
 	"os/exec"
@@ -23,6 +24,7 @@ var (
 func init() {
 	dir, err = os.Getwd()
 }
+
 func main() {
 	if _, err = os.Stat(path.Join(dir, "go.mod")); err != nil {
 		log.Println("please move to golang root directory first...")
@@ -38,19 +40,32 @@ func main() {
 		res := goRe.FindString(file)
 		if len(res) > 0 {
 			//log.Println(file)
-			NUM++
-			err = exec.Command("go", "fmt", file).Run()
-			if err != nil {
-				log.Printf("fmt error: %s\n", strings.TrimPrefix(file, dir+"/"))
+			if db.IsItemExist(file) {
+				if db.IsMd5Same(file) {
+					continue
+				}
+				format(file, &NUM)
+
+				err = db.UpdateRecordViaPth(file)
+				if err != nil {
+					log.Printf("UpdateRecordViaPth error: %s\n", strings.TrimPrefix(file, dir+"/"))
+				}
+			} else {
+				format(file, &NUM)
+				err = db.Record(file)
+				if err != nil {
+					log.Printf("Record error: %s\n", strings.TrimPrefix(file, dir+"/"))
+				}
 			}
-			log.Println(strings.TrimPrefix(file, dir+"/"))
 		}
 	}
 
-	if NUM == 1 {
-		log.Printf("fmt %d golang file\n", NUM)
+	if NUM == 0 {
+		log.Printf("[myfmt]: %d file\n", 0)
+	} else if NUM == 1 {
+		log.Printf("[myfmt]: %d file\n", 1)
 	} else {
-		log.Printf("fmt %d golang files\n", NUM)
+		log.Printf("[myfmt]: %d files\n", NUM)
 	}
 
 }
@@ -69,4 +84,13 @@ func walk(pth string) error {
 		files = append(files, path)
 		return nil
 	})
+}
+
+func format(file string, num *int) {
+	(*num)++
+	err = exec.Command("go", "fmt", file).Run()
+	if err != nil {
+		log.Printf("fmt error: %s\n", strings.TrimPrefix(file, dir+"/"))
+	}
+	log.Println(strings.TrimPrefix(file, dir+"/"))
 }
